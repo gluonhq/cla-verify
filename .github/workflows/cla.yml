@@ -24,33 +24,32 @@ jobs:
         env:
           GSHEET_CLIENT_EMAIL: ${{ secrets.GSHEET_CLIENT_EMAIL }}
           GSHEET_PRIVATE_KEY: ${{ secrets.GSHEET_PRIVATE_KEY }}
-      - name: Find username and labels
+      - name: Find username
         id: set-variables
         shell: bash
         run: |
           if [[ github.event_name == 'pull_request' ]]; then
               echo "::set-output name=username::${{ github.event.pull_request.user.login }}"
-              echo "::set-output name=labels::${{ toJSON(github.event.pull_request.labels.*.name) }}"
           else
               echo "::set-output name=username::${{ github.event.issue.user.login }}"
-              echo "::set-output name=labels::${{ toJSON(github.event.issue.labels.*.name) }}"
           fi
       - name: Find username index
         id: username-index
         env:
           RESULTS: ${{ steps.query-worksheet.outputs.results }}
           GITHUB_USER_NAME: ${{ steps.set-variables.outputs.username }}
-          LABELS: ${{ join(fromJson(steps.set-variables.outputs.labels), ', ') }}
         shell: bash
         run: |
           index=`echo "$RESULTS" | jq -c '.results[].result.rawData | flatten | index(env.GITHUB_USER_NAME)'`
           echo $GITHUB_USER_NAME
           echo $index
-          echo "$LABELS"
           [ "$index" = "null" ] && echo "Username not found in list"
           echo "::set-output name=index::$index"
       - name: Add CLA Label and Comment
-        if: steps.username-index.outputs.index == 'null' && !contains(steps.set-variables.outputs.labels, 'CLA')
+        if: |
+          steps.username-index.outputs.index == 'null' && 
+          ((github.event_name == 'pull_request' && !contains(github.event.pull_request.labels.*.name, 'CLA')) ||
+          (github.event_name == 'issue_comment' && !contains(github.event.issue.labels.*.name, 'CLA')))
         uses: actions/github-script@v3
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
@@ -68,7 +67,10 @@ jobs:
               labels: ['CLA']
             })
       - name: Add CLA-VERIFIED Label
-        if: steps.username-index.outputs.index != 'null' && !contains(steps.set-variables.outputs.labels, 'CLA-VERIFIED')
+        if: |
+          steps.username-index.outputs.index != 'null' &&
+          ((github.event_name == 'pull_request' && !contains(github.event.pull_request.labels.*.name, 'CLA-VERIFIED')) ||
+          (github.event_name == 'issue_comment' && !contains(github.event.issue.labels.*.name, 'CLA-VERIFIED')))
         uses: actions/github-script@v3
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
@@ -80,7 +82,10 @@ jobs:
               labels: ['CLA-VERIFIED']
             })
       - name: Remove CLA Label
-        if: steps.username-index.outputs.index != 'null' && contains(steps.set-variables.outputs.labels, 'CLA')
+        if: | 
+          steps.username-index.outputs.index != 'null' &&
+          ((github.event_name == 'pull_request' && contains(github.event.pull_request.labels.*.name, 'CLA')) ||
+          (github.event_name == 'issue_comment' && contains(github.event.issue.labels.*.name, 'CLA')))
         uses: actions/github-script@v3
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
