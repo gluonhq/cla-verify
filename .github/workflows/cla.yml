@@ -13,7 +13,9 @@ jobs:
       - name: Dump GitHub context
         env:
           GITHUB_CONTEXT: ${{ toJSON(github) }}
-        run: echo "$GITHUB_CONTEXT"
+        run: |
+          echo "Dumping context..."
+          echo "$GITHUB_CONTEXT"
       - id: 'query-worksheet'
         uses: jroehl/gsheet.action@release
         with:
