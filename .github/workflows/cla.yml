@@ -2,11 +2,18 @@ name: CLA verification
 on:
   pull_request_target:
     types: [opened, synchronize]
+  issue_comment:
+    types: [created]
 
 jobs:
   cla-verify:
+    if: ${{ github.event.issue.pull_request }}
     runs-on: ubuntu-latest
     steps:
+      - name: Dump GitHub context
+        env:
+          GITHUB_CONTEXT: ${{ toJSON(github) }}
+        run: echo "$GITHUB_CONTEXT"
       - id: 'query-worksheet'
         uses: jroehl/gsheet.action@release
         with:
