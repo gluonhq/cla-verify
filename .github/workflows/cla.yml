@@ -10,7 +10,7 @@ jobs:
       - id: 'query-worksheet'
         uses: jroehl/gsheet.action@release
         with:
-          spreadsheetId: $GSHEET_ID
+          spreadsheetId: '1iPD16aLPEslgWgw4VniE1IK8rm1l6OvLqHWQwngL9V8'
           commands: |
             [
               { "command": "getData", "args": { "range": "'Form Responses'!F:F" } }
