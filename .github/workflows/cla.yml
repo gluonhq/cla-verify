@@ -24,11 +24,23 @@ jobs:
         env:
           GSHEET_CLIENT_EMAIL: ${{ secrets.GSHEET_CLIENT_EMAIL }}
           GSHEET_PRIVATE_KEY: ${{ secrets.GSHEET_PRIVATE_KEY }}
+      - name: Find username
+        id: find-username
+        shell: bash
+        run: |
+          username="pull_request"
+          if [[ ${{github.event.issue.pull_request}} ]]; then
+              echo "::set-output name=username::${{ github.event.pull_request.user.login }}"
+          else
+              username="issue"
+              echo "::set-output name=username::${{ github.event.issue.user.login }}"
+          fi
+          echo $username
       - name: Find username index
         id: username-index
         env:
           RESULTS: ${{ steps.query-worksheet.outputs.results }}
-          GITHUB_USER_NAME: ${{ github.event.pull_request.user.login }} || ${{ github.event.issue.user.login }}
+          GITHUB_USER_NAME: ${{ steps.find-username.outputs.username }}
         shell: bash
         run: |
           index=`echo "$RESULTS" | jq -c '.results[].result.rawData | flatten | index(env.GITHUB_USER_NAME)'`
