@@ -24,23 +24,28 @@ jobs:
         env:
           GSHEET_CLIENT_EMAIL: ${{ secrets.GSHEET_CLIENT_EMAIL }}
           GSHEET_PRIVATE_KEY: ${{ secrets.GSHEET_PRIVATE_KEY }}
-      - name: Find username
-        id: find-username
+      - name: Find username and labels
+        id: set-variables
         shell: bash
         run: |
           username="pull_request"
+          labels=""
           if [[ github.event_name == 'pull_request' ]]; then
               echo "::set-output name=username::${{ github.event.pull_request.user.login }}"
+              echo "::set-output name=labels::${{ github.event.pull_request.labels.*.name }}"
           else
               username="issue"
+              labels=${{ github.event.issue.labels.*.name }}
               echo "::set-output name=username::${{ github.event.issue.user.login }}"
+              echo "::set-output name=labels::${{ github.event.issue.labels.*.name }}"
           fi
           echo $username
+          echo $labels
       - name: Find username index
         id: username-index
         env:
           RESULTS: ${{ steps.query-worksheet.outputs.results }}
-          GITHUB_USER_NAME: ${{ steps.find-username.outputs.username }}
+          GITHUB_USER_NAME: ${{ steps.set-variables.outputs.username }}
         shell: bash
         run: |
           index=`echo "$RESULTS" | jq -c '.results[].result.rawData | flatten | index(env.GITHUB_USER_NAME)'`
@@ -49,7 +54,7 @@ jobs:
           [ "$index" = "null" ] && echo "Username not found in list"
           echo "::set-output name=index::$index"
       - name: Add CLA Label and Comment
-        if: steps.username-index.outputs.index == 'null' && !contains(github.event.pull_request.labels.*.name, 'CLA')
+        if: steps.username-index.outputs.index == 'null' && !contains(steps.set-variables.outputs.labels, 'CLA')
         uses: actions/github-script@v3
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
@@ -58,7 +63,7 @@ jobs:
               issue_number: context.issue.number,
               owner: context.repo.owner,
               repo: context.repo.repo,
-              body: 'Hi @${{ github.event.pull_request.user.login }},\n\nWelcome to GluonHQ and thank you for taking time to contribute to this project.\n\nWe do not recognise you as a contributor. Can you please sign [Gluon Individual Contributor License Agreement](https://cla.gluonhq.com) ?'
+              body: 'Hi @${{ steps.find-username.outputs.username }},\n\nWelcome to GluonHQ and thank you for taking time to contribute to this project.\n\nWe do not recognise you as a contributor. Can you please sign [Gluon Individual Contributor License Agreement](https://cla.gluonhq.com) ?'
             })
             github.issues.addLabels({
               issue_number: context.issue.number,
@@ -67,7 +72,7 @@ jobs:
               labels: ['CLA']
             })
       - name: Add CLA-VERIFIED Label
-        if: steps.username-index.outputs.index != 'null' && !contains(github.event.pull_request.labels.*.name, 'CLA-VERIFIED')
+        if: steps.username-index.outputs.index != 'null' && !contains(steps.set-variables.outputs.labels, 'CLA-VERIFIED')
         uses: actions/github-script@v3
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
@@ -79,7 +84,7 @@ jobs:
               labels: ['CLA-VERIFIED']
             })
       - name: Remove CLA Label
-        if: steps.username-index.outputs.index != 'null' && contains(github.event.pull_request.labels.*.name, 'CLA')
+        if: steps.username-index.outputs.index != 'null' && contains(steps.set-variables.outputs.labels, 'CLA')
         uses: actions/github-script@v3
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
